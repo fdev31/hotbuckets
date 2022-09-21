@@ -50,7 +50,7 @@ Check the *examples* folder to dive into the syntax.
 
 # Usage
 
-Check the [samples](http://) folder for more examples.
+Check the [examples](https://github.com/fdev31/hotbuckets/tree/main/examples) for more usages.
 
 Given the file:
 
@@ -58,8 +58,6 @@ Given the file:
 [speeds]
 full = "32mbit"
 half = "15mbit"
-almost = "25mbit"
-slow = "2mbit"
 
 [interfaces.nic]
 dev = "wlo1"
@@ -125,7 +123,7 @@ You can use the command `htb configuration.toml` to get the following output:
 
 You can also use the `--show` parameter to get a representation like this:
 
-![](http://)
+![graph](https://github.com/fdev31/hotbuckets/raw/main/examples/graph.png)
 
 ## Misc notes
 
