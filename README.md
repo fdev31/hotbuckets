@@ -56,6 +56,20 @@ You can optionally install `graphviz` to enable the `--show` action.
 
 Check the [examples](https://github.com/fdev31/hotbuckets/tree/main/examples) for more usages.
 
+It uses a TOML formated file with a list of main sections:
+- speeds: aliases for network speeds to avoid repeating values
+- interfaces: aliases for network interfaces if you need symbolic names
+- shaper: describes tc's qdiscs
+- class: describes tc's classes (only htb for now)
+- match: describes tc's filter, used to send traffic to a specific class or shaper
+
+The sub section name is used as a unique identified, eg:
+
+    [shaper.slowtraffic]
+
+The items "shaper" "class" and "match" must have a parent, if not, it defaults to "root".
+The "dev" (network interface) attribute is inherited from the parents if not set.
+
 Given the file:
 
 ```ini
