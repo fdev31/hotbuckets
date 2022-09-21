@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "trafficshaper"
-version = "0.1.0"
+version = "0.1.1"
 description = "Easily configure your network behavior on Linux (generates tc rules from a config)"
 authors = ["fdev31 <fdev31@gmail.com>"]
 license = "MIT"
