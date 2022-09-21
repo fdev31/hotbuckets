@@ -1,7 +1,7 @@
 #!/bin/env sh
 
 htb() {
-    python trafficshaper.py $*
+    python hotbuckets.py $*
 }
 
 gen_ref() {

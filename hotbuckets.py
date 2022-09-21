@@ -4,14 +4,17 @@ from collections import defaultdict
 
 import tomli
 
+
 # utils
 def findIt(func, it):
     return next(filter(lambda x: x, map(func, it)))
+
 
 def fixHandles(txt):
     if callable(txt):
         txt = txt()
     return "h" + txt.replace(":", "_")
+
 
 def commentify(txt):
     ret = []
@@ -21,6 +24,7 @@ def commentify(txt):
         else:
             ret.append("#   %s" % line)
     return "\n".join(ret)
+
 
 # worker code
 class D:
@@ -120,7 +124,7 @@ def TcFilterRule(name, data):
 
 def TcShapeRule(name, data):
     ret = [TC, "qdisc", "add"]
-    handleDev(ret, data, validParents['shape'])
+    handleDev(ret, data, validParents["shape"])
 
     dad = data.get("parent", "root")
     if dad == "root":
@@ -180,6 +184,7 @@ def TcShapeRule(name, data):
         ret.extend(["default", lambda: flows["classes"][data["default"]].split(":")[1]])
     loglines.append(ret + ["# " + name])
 
+
 def parseSection(section, handler):
     error = False
     if section not in doc:
@@ -197,6 +202,7 @@ def parseSection(section, handler):
             else:
                 error = "%s : %s" % (t, ", ".join(e.args))
     return error
+
 
 def main():
     def handleOrClassId(txt):
@@ -276,26 +282,29 @@ validParents = {  # registers valid parent types for each type
 
 TC = doc.get("tc", "tc")
 
-flows = { # flows as found in the config
+flows = {  # flows as found in the config
     "shapes": {},
     "classes": {},
 }
 
-allNICS = set() # list of NICs found in the config
+allNICS = set()  # list of NICs found in the config
 defaults = set()  # set of default entries
 loglines = []  # list of log lines (final output)
 _parsed = {"shape": set(), "class": set(), "match": set()}
+
 
 def getNIC(uid):
     r = _getNIC(uid)
     allNICS.add(r)
     return r
 
+
 def _getNIC(uid):
     try:
         return doc["interfaces"][uid]["dev"]
     except KeyError:
         return uid
+
 
 def _findDev(r, d, curType):
     if "dev" in d:
@@ -309,6 +318,7 @@ def _findDev(r, d, curType):
                 if v:
                     return v
 
+
 def handleDev(r, d, parentTypes=("class",)):
     if "dev" in d:
         r.extend(["dev", getNIC(d["dev"])])
@@ -317,6 +327,7 @@ def handleDev(r, d, parentTypes=("class",)):
             r.extend(["dev", lambda: _findDev(r, d, parentTypes[0])])
         else:
             r.extend(["dev", lambda: findIt(lambda x: _findDev(r, d, x), parentTypes)])
+
 
 def handleCommonTypes(r, d, k, isSpeed=False, mandatory=False):
     if k in d:
@@ -331,6 +342,7 @@ def handleCommonTypes(r, d, k, isSpeed=False, mandatory=False):
         return v
     if mandatory:
         raise ValueError(f"No {k} given for {r}")
+
 
 if __name__ == "__main__":
     main()

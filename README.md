@@ -46,7 +46,11 @@ Check the *examples* folder to dive into the syntax.
 
 # Installation
 
-    pip install hotbucket
+    pip install hotbuckets
+
+You can also directly download [the file](https://github.com/fdev31/hotbuckets/raw/main/hotbuckets.py), mark it executable adn run it.
+
+You can optionally install `graphviz` to enable the `--show` action.
 
 # Usage
 
