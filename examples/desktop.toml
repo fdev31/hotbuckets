@@ -1,0 +1,53 @@
+unit = "mbit"
+
+[speeds]
+full = "32mbit"
+half = "15mbit"
+almost = "25mbit"
+slow = "2mbit"
+
+[interfaces.nic]
+dev = "wlo1"
+
+[shape.base]
+dev = "nic"
+default = "baseline"
+ceil = "full"
+
+[class.unlimited]
+parent = "base"
+rate = "full"
+
+[class."baseline"]
+parent = "unlimited"
+rate = "half"
+ceil = "full"
+
+[shape.fairness]
+parent = "baseline"
+type = "sfq"
+perturb = 10
+
+[class."web"]
+parent = "unlimited"
+rate = "half"
+ceil = "full"
+
+[shape.fairness-web]
+parent = "web"
+type = "sfq"
+perturb = 10
+
+[match.filtHttp]
+protocol = "ip"
+parent = "base"
+filters = "web"
+ip = {dport="80"}
+
+[match.filtHttps]
+protocol = "ip"
+parent = "base"
+filters = "web"
+ip = {dport="443"}
+
+

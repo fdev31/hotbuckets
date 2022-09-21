@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "trafficshaper"
+version = "0.1.0"
+description = "Easily configure your network behavior on Linux (generates tc rules from a config)"
+authors = ["fdev31 <fdev31@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.scripts]
+htb = "trafficshaper:main"
+
+[tool.poetry.dependencies]
+python = ">=3.6.1"
+tomli = ">=1.0.1"
+#graphviz = {version=">0.10.1", optional=true}
+
+
+[tool.poetry.extras]
+viz = ['graphviz']
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.mypy]
+strict = true
+plugins = "pydantic.mypy"
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = true
+warn_unreachable = true
+
+[tool.vulture]
+exclude = ["tests/"]
+min_confidence = 70
+#paths = ["mkrst"]
+sort_by_size = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

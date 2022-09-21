@@ -1,0 +1,50 @@
+unit = "mbit"
+tc = "/sbin/tc"
+
+[interfaces.nic]
+dev = "eth0"
+
+[hosts.lan]
+ip = "192.168.2.0/24"
+
+[speeds]
+full = "30mbit"
+almost = "25mbit"
+slow = "5mbit"
+
+[shape.shaper]
+dev = "nic"
+
+[class.rootQ]
+parent = "shaper"
+rate = "full"
+default = "base"
+
+[shape.makefair1]
+parent = "base"
+type = "sfq"
+perturb = 10
+
+[shape.makefair2]
+parent = "webserver"
+type = "sfq"
+perturb = 10
+
+[class.base]
+parent = "rootQ"
+rate = "full"
+ceil = "full"
+
+[class.webserver]
+parent = "rootQ"
+rate = "100kbps"
+ceil = "almost"
+prio = 1
+
+[match.filt1]
+parent="shaper"
+protocol = "ip"
+prio = 2
+filters = "webserver"
+ip = {sport=80}
+

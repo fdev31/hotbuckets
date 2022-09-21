@@ -1,0 +1,7 @@
+[shape.simpleroot]
+dev = "wlo1"
+type = "tbf"
+latency = "200ms"
+rate = "10mbit"
+burst = 5000
+

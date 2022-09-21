@@ -1,0 +1,27 @@
+#!/bin/env sh
+
+htb() {
+    python trafficshaper.py $*
+}
+
+gen_ref() {
+    htb $1 |grep -v '^#' > $1.output
+    echo "generated"
+}
+check_ref() {
+    htb $1 |grep -v '^#' > $1.test
+    cmp $1.output $1.test
+    if [ $? != 0 ] ; then
+        diff -ubB  --suppress-common-lines $1.output $1.test | pygmentize
+        echo "$1 CHANGED!"
+        exit 1
+    fi
+    echo "passed"
+}
+for n in examples/*.toml; do
+    echo -n "$n ..."
+    if [ ! -e "$n.output" ];  then
+        gen_ref $n
+    fi
+    check_ref $n
+done

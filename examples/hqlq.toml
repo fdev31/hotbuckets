@@ -1,0 +1,79 @@
+unit = "mbit"
+tc = "/sbin/tc"
+
+[hosts.stb]
+ip = "192.168.100.42"
+
+[speeds]
+full = "30mbit"
+slow = "2mbit"
+almost = "25mbit"
+
+[interfaces.nic]
+dev = "enp1s0u1u2"
+
+[shape.shaper]
+dev = "nic"
+
+[class.base]
+parent = "shaper"
+default = "baseline"
+rate = "full"
+
+[class."baseline"]
+parent = "base"
+rate = "slow"
+ceil = "full"
+
+[shape.fairness]
+parent = "baseline"
+type = "sfq"
+perturb = 10
+
+
+[class."degraded"]
+parent = "base"
+rate = "slow"
+ceil = "slow"
+default = "badnetwork"
+
+[shape.badnetwork]
+type = "netem"
+parent = "degraded"
+delay = "60ms 20ms" # 60ms  +/-20
+loss = "1% 1%" # ~ 0.05% packet loss
+#duplicate = "1%" # dup 1% of pkgs
+corrupt = "0.1%" # corrupt 1% of pkgs
+reorder = "50% 50%"
+
+
+[match.filt1]
+protocol = "ip"
+prio = 1
+parent = "shaper"
+filters = "degraded"
+#action = "drop"
+#action = "police"
+ip = {dst="stb", sport="80"}
+
+
+[match.filt2]
+protocol = "ip"
+prio = 1
+parent = "shaper"
+filters = "degraded"
+#action = "drop"
+#action = "police"
+ip = {sport="443", dst="stb"}
+
+# iptables -A PREROUTING -t mangle -i eth0 -j MARK --set-mark 6
+[match.filt3]
+protocol = "ip"
+prio = 1
+parent = "shaper"
+type = "fw"
+filters = "degraded"
+handle = "42"
+##action = "drop"
+##action = "police"
+##ip = {dst="stb", sport="443"}
