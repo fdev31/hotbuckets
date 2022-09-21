@@ -196,11 +196,12 @@ def parseSection(section, handler):
             handler(name, data)
             _parsed[section].add(name)
         except Exception as e:
-            t = type(e).__name__
-            if t == "KeyError":
-                error = f'Error in {section}.{name}, couldn\'t find "{e.args[0]}"'
-            else:
-                error = "%s : %s" % (t, ", ".join(e.args))
+            if not error:
+                t = type(e).__name__
+                if t == "KeyError":
+                    error = f'Error in {section}.{name}, couldn\'t find "{e.args[0]}"'
+                else:
+                    error = "%s : %s" % (t, ", ".join(e.args))
     return error
 
 
