@@ -9,7 +9,7 @@ slow = "2mbit"
 [interfaces.nic]
 dev = "wlo1"
 
-[shape.base]
+[shaper.base]
 dev = "nic"
 default = "baseline"
 ceil = "full"
@@ -23,7 +23,7 @@ parent = "unlimited"
 rate = "half"
 ceil = "full"
 
-[shape.fairness]
+[shaper.fairness]
 parent = "baseline"
 type = "sfq"
 perturb = 10
@@ -33,7 +33,7 @@ parent = "unlimited"
 rate = "half"
 ceil = "full"
 
-[shape.fairness-web]
+[shaper.fairness-web]
 parent = "web"
 type = "sfq"
 perturb = 10
@@ -41,13 +41,13 @@ perturb = 10
 [match.filtHttp]
 protocol = "ip"
 parent = "base"
-filters = "web"
+sendTo = "web"
 ip = {dport="80"}
 
 [match.filtHttps]
 protocol = "ip"
 parent = "base"
-filters = "web"
+sendTo = "web"
 ip = {dport="443"}
 
 

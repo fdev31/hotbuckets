@@ -12,7 +12,7 @@ full = "30mbit"
 almost = "25mbit"
 slow = "5mbit"
 
-[shape.shaper]
+[shaper.shaper]
 dev = "nic"
 
 [class.rootQ]
@@ -20,12 +20,12 @@ parent = "shaper"
 rate = "full"
 default = "base"
 
-[shape.makefair1]
+[shaper.makefair1]
 parent = "base"
 type = "sfq"
 perturb = 10
 
-[shape.makefair2]
+[shaper.makefair2]
 parent = "webserver"
 type = "sfq"
 perturb = 10
@@ -45,6 +45,6 @@ prio = 1
 parent="shaper"
 protocol = "ip"
 prio = 2
-filters = "webserver"
+sendTo = "webserver"
 ip = {sport=80}
 

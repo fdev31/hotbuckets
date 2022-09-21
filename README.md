@@ -33,7 +33,7 @@ Check the *examples* folder to dive into the syntax.
 - htb
 - tbf
 
-## Classes (categories uses by some QDiscs)
+## Classes
 
 - htb
 
@@ -66,7 +66,7 @@ half = "15mbit"
 [interfaces.nic]
 dev = "wlo1"
 
-[shape.base]
+[shaper.base]
 dev = "nic"
 default = "baseline"
 ceil = "full"
@@ -80,7 +80,7 @@ parent = "unlimited"
 rate = "half"
 ceil = "full"
 
-[shape.fairness]
+[shaper.fairness]
 parent = "baseline"
 type = "sfq"
 perturb = 10
@@ -90,7 +90,7 @@ parent = "unlimited"
 rate = "half"
 ceil = "full"
 
-[shape.fairness-web]
+[shaper.fairness-web]
 parent = "web"
 type = "sfq"
 perturb = 10
@@ -98,13 +98,13 @@ perturb = 10
 [match.filtHttp]
 protocol = "ip"
 parent = "base"
-filters = "web"
+sendTo = "web"
 ip = {dport="80"}
 
 [match.filtHttps]
 protocol = "ip"
 parent = "base"
-filters = "web"
+sendTo = "web"
 ip = {dport="443"}
 ```
 
@@ -131,9 +131,9 @@ You can also use the `--show` parameter to get a representation like this:
 
 ## Misc notes
 
-- shapes are qdiscs, the "main" type of traffic control object, some can use classes
-- classes are used by some shapes to divide the traffic
-- match allows sending network traffic matching the rule to some shape
+- shapers are qdiscs, the "main" type of traffic control object, some can use classes
+- classes are used by some shapers to divide the traffic
+- match allows sending network traffic to a specific class or shaper (qdisc)
 - try to avoid using the same names in match and class, some cases are ambiguous
 
 # TODO

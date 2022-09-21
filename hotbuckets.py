@@ -88,7 +88,7 @@ def TcFilterRule(name, data):
 
     pname = data.get("parent")
     if pname:
-        ret.extend(["parent", lambda: flows["shapes"][pname]])
+        ret.extend(["parent", lambda: flows["shapers"][pname]])
 
     handleCommonTypes(ret, data, "prio")
 
@@ -109,8 +109,8 @@ def TcFilterRule(name, data):
             ret.extend([k, str(v)])
             if k.endswith("port"):
                 ret.append("0xffff")
-    filters = data["filters"]
-    for flowType in ("classes", "shapes"):
+    filters = data["sendTo"]
+    for flowType in ("classes", "shapers"):
         if filters in flows[flowType]:
             flowid = flows[flowType][filters]
             break
@@ -124,7 +124,7 @@ def TcFilterRule(name, data):
 
 def TcShapeRule(name, data):
     ret = [TC, "qdisc", "add"]
-    handleDev(ret, data, validParents["shape"])
+    handleDev(ret, data, validParents["shaper"])
 
     dad = data.get("parent", "root")
     if dad == "root":
@@ -134,11 +134,11 @@ def TcShapeRule(name, data):
         ret.extend(["parent", p])
 
     t = data.get("type", "htb")
-    thisId = len(flows["shapes"]) + 1
-    flows["shapes"][name] = "%d:" % (thisId)
-    ret.extend(["handle", flows["shapes"][name]])
+    thisId = len(flows["shapers"]) + 1
+    flows["shapers"][name] = "%d:" % (thisId)
+    ret.extend(["handle", flows["shapers"][name]])
     if dad != "root":
-        g.edge(flows["shapes"][name], p)
+        g.edge(flows["shapers"][name], p)
 
     ret.append(t)
     extra = []
@@ -175,8 +175,8 @@ def TcShapeRule(name, data):
 
     extra = "\n".join(extra)
     g.node(
-        flows["shapes"][name],
-        label=f"Queue[{t}] {name} ({flows['shapes'][name]})\n{extra}",
+        flows["shapers"][name],
+        label=f"Queue[{t}] {name} ({flows['shapers'][name]})\n{extra}",
     )
 
     if "default" in data:
@@ -223,7 +223,7 @@ def main():
         return int(ma or 0), int(mi or 0)
 
     for n in range(10):
-        s = parseSection("shape", TcShapeRule)
+        s = parseSection("shaper", TcShapeRule)
         c = parseSection("class", TcClassRule)
         m = parseSection("match", TcFilterRule)
         if not any([s, c, m]):
@@ -275,22 +275,22 @@ g = D()
 doc = tomli.load(args.config)
 
 validParents = {  # registers valid parent types for each type
-    "shape": ("class", "class"),
-    "class": ("class", "shape"),
-    "filter": ("shape",),
+    "shaper": ("class", "class"),
+    "class": ("class", "shaper"),
+    "filter": ("shaper",),
 }
 
 TC = doc.get("tc", "tc")
 
 flows = {  # flows as found in the config
-    "shapes": {},
+    "shapers": {},
     "classes": {},
 }
 
 allNICS = set()  # list of NICs found in the config
 defaults = set()  # set of default entries
 loglines = []  # list of log lines (final output)
-_parsed = {"shape": set(), "class": set(), "match": set()}
+_parsed = {"shaper": set(), "class": set(), "match": set()}
 
 
 def getNIC(uid):

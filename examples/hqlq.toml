@@ -12,7 +12,7 @@ almost = "25mbit"
 [interfaces.nic]
 dev = "enp1s0u1u2"
 
-[shape.shaper]
+[shaper.shaper]
 dev = "nic"
 
 [class.base]
@@ -25,7 +25,7 @@ parent = "base"
 rate = "slow"
 ceil = "full"
 
-[shape.fairness]
+[shaper.fairness]
 parent = "baseline"
 type = "sfq"
 perturb = 10
@@ -37,7 +37,7 @@ rate = "slow"
 ceil = "slow"
 default = "badnetwork"
 
-[shape.badnetwork]
+[shaper.badnetwork]
 type = "netem"
 parent = "degraded"
 delay = "60ms 20ms" # 60ms  +/-20
@@ -51,7 +51,7 @@ reorder = "50% 50%"
 protocol = "ip"
 prio = 1
 parent = "shaper"
-filters = "degraded"
+sendTo = "degraded"
 #action = "drop"
 #action = "police"
 ip = {dst="stb", sport="80"}
@@ -61,7 +61,7 @@ ip = {dst="stb", sport="80"}
 protocol = "ip"
 prio = 1
 parent = "shaper"
-filters = "degraded"
+sendTo = "degraded"
 #action = "drop"
 #action = "police"
 ip = {sport="443", dst="stb"}
@@ -72,7 +72,7 @@ protocol = "ip"
 prio = 1
 parent = "shaper"
 type = "fw"
-filters = "degraded"
+sendTo = "degraded"
 handle = "42"
 ##action = "drop"
 ##action = "police"
