@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Custom node styles */
+.react-flow__node {
+  font-size: 12px;
+}
+
+.react-flow__edge-path {
+  stroke-width: 2;
+}
+
+.node-field {
+  @apply flex items-center gap-1.5 mb-1;
+}
+
+.node-field label {
+  @apply text-xs text-gray-500 w-14 shrink-0 text-right;
+}
+
+.node-field input,
+.node-field select {
+  @apply text-xs border border-gray-300 rounded px-1.5 py-0.5 bg-white flex-1 min-w-0;
+}
+
+.node-field input:focus,
+.node-field select:focus {
+  @apply outline-none ring-1 ring-blue-400 border-blue-400;
+}
+
+.node-field input[type="checkbox"] {
+  @apply w-3.5 h-3.5 flex-none;
+}
