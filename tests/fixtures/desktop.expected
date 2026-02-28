@@ -1,0 +1,10 @@
+tc qdisc del dev wlo1 root
+set -ex
+tc qdisc add dev wlo1 root handle 1: htb default 2 # base
+tc class add dev wlo1 parent 1: classid 1:1 htb rate 32mbit # unlimited
+tc class add dev wlo1 parent 1:1 classid 1:2 htb rate 15mbit ceil 32mbit # baseline
+tc class add dev wlo1 parent 1:1 classid 1:3 htb rate 15mbit ceil 32mbit # web
+tc qdisc add dev wlo1 parent 1:2 handle 2: sfq perturb 10 # fairness
+tc qdisc add dev wlo1 parent 1:3 handle 3: sfq perturb 10 # fairness-web
+tc filter add dev wlo1 protocol ip parent 1: u32 match ip dport 80 0xffff flowid 1:3 # filtHttp
+tc filter add dev wlo1 protocol ip parent 1: u32 match ip dport 443 0xffff flowid 1:3 # filtHttps

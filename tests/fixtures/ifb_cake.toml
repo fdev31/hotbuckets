@@ -1,0 +1,47 @@
+# IFB + CAKE example: bufferbloat-fighting setup
+# Redirects incoming traffic through IFB for download shaping
+
+[vars]
+iface = "enp12s0"
+download = "120mbit"
+upload = "90mbit"
+
+[devices.main]
+dev = "{iface}"
+
+[devices.ifb0]
+dev = "ifb0"
+virtual = true
+type = "ifb"
+
+# Ingress qdisc on the physical interface
+[shaper.ingress]
+dev = "main"
+type = "ingress"
+handle = "ffff:"
+
+# Redirect filter: forward ingress traffic to IFB
+[match.redirect_to_ifb]
+dev = "main"
+parent = "ingress"
+type = "matchall"
+
+[match.redirect_to_ifb.action]
+type = "mirred"
+direction = "egress"
+mode = "redirect"
+target = "ifb0"
+
+# CAKE on IFB egress (download shaping)
+[shaper.download_shaping]
+dev = "ifb0"
+type = "cake"
+bandwidth = "{download}"
+diffserv4 = true
+
+# CAKE on physical interface egress (upload shaping)
+[shaper.upload_shaping]
+dev = "main"
+type = "cake"
+bandwidth = "{upload}"
+diffserv4 = true
