@@ -1,0 +1,10 @@
+tc qdisc del dev enp12s0 root
+tc qdisc del dev enp12s0 ingress
+tc qdisc del dev ifb0 root
+modprobe ifb numifbs=1
+ip link set dev ifb0 up
+set -ex
+tc qdisc add dev ifb0 root handle 1: cake bandwidth 450mbit diffserv4 wash # download
+tc qdisc add dev enp12s0 root handle 2: cake bandwidth 45mbit diffserv4 # upload
+tc qdisc add dev enp12s0 handle ffff: ingress # ingress
+tc filter add dev enp12s0 parent ffff: matchall action mirred egress redirect dev ifb0 # redirect_to_ifb

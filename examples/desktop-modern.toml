@@ -1,0 +1,65 @@
+# Modern desktop bufferbloat-fighting setup using CAKE + IFB
+#
+# This is the recommended configuration for a typical home connection.
+# It shapes both upload and download traffic using CAKE, which handles
+# bufferbloat, flow isolation, and prioritization automatically.
+#
+# How it works:
+#   - Upload: CAKE qdisc directly on the outgoing interface
+#   - Download: traffic is redirected from ingress through a virtual
+#     IFB device, where CAKE shapes it on egress
+#
+# Adjust "iface", "download" and "upload" to match your connection.
+# Use ~90-95% of your actual speeds for best results.
+
+[vars]
+iface = "enp12s0"        # your network interface (ip link show)
+download = "450mbit"      # ~95% of your download speed
+upload = "45mbit"         # ~95% of your upload speed
+
+# ── Devices ──────────────────────────────────────────────────────
+
+[devices.main]
+dev = "{iface}"
+
+[devices.ifb0]
+dev = "ifb0"
+virtual = true
+type = "ifb"
+
+# ── Download shaping (via IFB) ───────────────────────────────────
+
+# Capture incoming traffic on the physical interface
+[shaper.ingress]
+dev = "main"
+type = "ingress"
+handle = "ffff:"
+
+# Redirect all ingress packets to the IFB device
+[match.redirect_to_ifb]
+dev = "main"
+parent = "ingress"
+type = "matchall"
+
+[match.redirect_to_ifb.action]
+type = "mirred"
+direction = "egress"
+mode = "redirect"
+target = "ifb0"
+
+# Shape download traffic with CAKE on the IFB
+[shaper.download]
+dev = "ifb0"
+type = "cake"
+bandwidth = "{download}"
+diffserv4 = true           # 4-tier priority (voice, video, best-effort, bulk)
+wash = true                # clear DSCP on ingress (ISPs may mislabel)
+
+# ── Upload shaping ───────────────────────────────────────────────
+
+# Shape upload traffic with CAKE directly on the interface
+[shaper.upload]
+dev = "main"
+type = "cake"
+bandwidth = "{upload}"
+diffserv4 = true
