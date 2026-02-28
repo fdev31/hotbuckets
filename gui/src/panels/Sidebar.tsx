@@ -1,6 +1,7 @@
-import { type DragEvent } from "react";
+import { type DragEvent, useState, useCallback } from "react";
 import { useStore } from "../store";
 import { NODE_COLORS, type KeyValueEntry } from "../types";
+import { BUILTIN_WORKSPACES } from "../builtins";
 
 const NODE_PALETTE = [
   { type: "device", label: "Device", desc: "Network interface" },
@@ -80,6 +81,151 @@ function KVEditor({
   );
 }
 
+// ── Relative time formatter ─────────────────────────────────────
+
+function timeAgo(ts: number): string {
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60) return "just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hrs = Math.floor(min / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+// ── Workspace panel ─────────────────────────────────────────────
+
+function WorkspacePanel() {
+  const activeWorkspaceId = useStore((s) => s.activeWorkspaceId);
+  const activeWorkspaceName = useStore((s) => s.activeWorkspaceName);
+  const setActiveWorkspaceName = useStore((s) => s.setActiveWorkspaceName);
+  const saveWorkspace = useStore((s) => s.saveWorkspace);
+  const loadWorkspace = useStore((s) => s.loadWorkspace);
+  const deleteWorkspace = useStore((s) => s.deleteWorkspace);
+  const newWorkspace = useStore((s) => s.newWorkspace);
+  const listWorkspaces = useStore((s) => s.listWorkspaces);
+
+  // Force re-render after save/delete/load so the list updates
+  const [, setTick] = useState(0);
+  const refresh = useCallback(() => setTick((t) => t + 1), []);
+
+  const workspaces = listWorkspaces();
+
+  const handleSave = () => {
+    saveWorkspace();
+    refresh();
+  };
+
+  const handleNew = () => {
+    newWorkspace();
+    refresh();
+  };
+
+  const handleLoad = (id: string) => {
+    loadWorkspace(id);
+    refresh();
+  };
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    deleteWorkspace(id);
+    refresh();
+  };
+
+  return (
+    <div className="p-3 border-b border-gray-200">
+      <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
+        Workspace
+      </h2>
+
+      {/* Active workspace name */}
+      <input
+        className="text-xs border border-gray-300 rounded px-1.5 py-1 w-full bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 mb-1.5"
+        value={activeWorkspaceName}
+        onChange={(e) => setActiveWorkspaceName(e.target.value)}
+        placeholder="Workspace name"
+      />
+
+      {/* Action buttons */}
+      <div className="flex gap-1.5 mb-2">
+        <button
+          onClick={handleSave}
+          className="flex-1 text-xs px-2 py-1 rounded border border-blue-400 bg-blue-500 text-white hover:bg-blue-600 cursor-pointer"
+        >
+          Save
+        </button>
+        <button
+          onClick={handleNew}
+          className="flex-1 text-xs px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 cursor-pointer"
+        >
+          New
+        </button>
+      </div>
+
+      {/* Saved workspace list */}
+      {workspaces.length > 0 && (
+        <div className="max-h-36 overflow-y-auto space-y-0.5">
+          {workspaces.map((ws) => (
+            <div
+              key={ws.id}
+              onClick={() => handleLoad(ws.id)}
+              className={`group flex items-center justify-between px-2 py-1 rounded cursor-pointer text-xs transition-colors ${
+                ws.id === activeWorkspaceId
+                  ? "bg-blue-50 border border-blue-300"
+                  : "hover:bg-gray-100 border border-transparent"
+              }`}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-gray-800 truncate">
+                  {ws.name}
+                </div>
+                <div className="text-[10px] text-gray-400">
+                  {timeAgo(ws.savedAt)}
+                </div>
+              </div>
+              <button
+                onClick={(e) => handleDelete(e, ws.id)}
+                className="text-gray-300 hover:text-red-500 ml-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                title="Delete workspace"
+              >
+                x
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {workspaces.length === 0 && (
+        <div className="text-[10px] text-gray-400 italic">
+          No saved workspaces
+        </div>
+      )}
+
+      {/* Built-in examples */}
+      <div className="mt-3 pt-2 border-t border-gray-200">
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+          Examples
+        </span>
+        <div className="mt-1 space-y-0.5">
+          {BUILTIN_WORKSPACES.map((bw) => (
+            <div
+              key={bw.id}
+              onClick={() => handleLoad(bw.id)}
+              className="px-2 py-1 rounded cursor-pointer text-xs hover:bg-gray-100 border border-transparent transition-colors"
+            >
+              <div className="font-medium text-gray-700">{bw.name}</div>
+              <div className="text-[10px] text-gray-400">
+                {bw.description}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Sidebar ─────────────────────────────────────────────────────
 
 export function Sidebar() {
@@ -96,6 +242,9 @@ export function Sidebar() {
 
   return (
     <div className="w-56 bg-gray-50 border-r border-gray-200 flex flex-col overflow-y-auto">
+      {/* Workspace save/load */}
+      <WorkspacePanel />
+
       {/* Node palette */}
       <div className="p-3 border-b border-gray-200">
         <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">

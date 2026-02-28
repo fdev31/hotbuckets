@@ -140,6 +140,24 @@ export interface KeyValueEntry {
   value: string;
 }
 
+// ── Workspace persistence ────────────────────────────────────────
+
+export interface WorkspaceMeta {
+  id: string;
+  name: string;
+  savedAt: number;
+}
+
+export interface Workspace extends WorkspaceMeta {
+  nodes: AppNode[];
+  edges: import("@xyflow/react").Edge[];
+  variables: KeyValueEntry[];
+  speeds: KeyValueEntry[];
+  hosts: KeyValueEntry[];
+  tc: string;
+  unit: string;
+}
+
 // ── Node colors ─────────────────────────────────────────────────
 
 export const NODE_COLORS: Record<string, string> = {
