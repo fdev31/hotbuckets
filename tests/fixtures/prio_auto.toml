@@ -1,0 +1,14 @@
+# Prio with auto-generated bands (no explicit [class.*] entries)
+
+[shaper.sched]
+dev = "eth0"
+type = "prio"
+bands = "3"
+priomap = "1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1"
+
+# SSH to high-priority band (auto-generated sched:band0)
+[match.ssh]
+protocol = "ip"
+parent = "sched"
+sendTo = "sched:band0"
+ip = {dport = "22"}

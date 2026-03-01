@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from hotbuckets.errors import ValidationError
 from hotbuckets.model import TrafficConfig
 from hotbuckets.registry import Registry
 from hotbuckets.resolver import ResolverResult
@@ -49,6 +50,9 @@ def generate(config: TrafficConfig, result: ResolverResult) -> str:
     # set -ex
     lines.append("set -ex")
 
+    # Validate all entries before generating
+    _validate_all(config)
+
     # Rules section
     lines.append("# Rules:")
 
@@ -69,6 +73,35 @@ def generate(config: TrafficConfig, result: ResolverResult) -> str:
         lines.append(line)
 
     return "\n".join(lines) + "\n"
+
+
+def _validate_all(config: TrafficConfig) -> None:
+    """Run plugin validation on all entries. Raises ValidationError on first failure."""
+    for q in config.qdiscs:
+        plugin = Registry.get_qdisc(q.qdisc_type)
+        errors = plugin.validate(q.params)
+        if errors:
+            raise ValidationError("; ".join(errors), entry_type="qdisc", entry_name=q.name)
+
+    for f in config.filters:
+        plugin = Registry.get_filter(f.filter_type)
+        plugin_params: dict = {}
+        if f.filter_type == "flower":
+            plugin_params["match_params"] = f.match_params
+        else:
+            plugin_params["ip_matches"] = f.ip_matches
+            plugin_params["handle"] = f.handle
+        plugin_params["hosts"] = config.hosts
+        errors = plugin.validate(plugin_params)
+        if errors:
+            raise ValidationError("; ".join(errors), entry_type="filter", entry_name=f.name)
+
+    for f in config.filters:
+        for action in f.actions:
+            plugin = Registry.get_action(action.type)
+            errors = plugin.validate(action.params)
+            if errors:
+                raise ValidationError("; ".join(errors), entry_type="action", entry_name=f"{f.name}.action")
 
 
 def _resolve_speed(value: str, config: TrafficConfig) -> str:
@@ -102,9 +135,9 @@ def _generate_qdisc(
     # Device
     parts.extend(["dev", entry.device])
 
-    # Parent — ingress qdiscs don't use parent/root
-    if qdisc.qdisc_type == "ingress":
-        pass  # No parent clause for ingress
+    # Parent — ingress/clsact qdiscs don't use parent/root
+    if qdisc.qdisc_type in ("ingress", "clsact"):
+        pass  # No parent clause for ingress/clsact
     elif entry.parent_handle == "root":
         parts.append("root")
     else:
@@ -128,7 +161,7 @@ def _generate_qdisc(
     plugin_args = plugin.generate(resolved_params)
     parts.extend(plugin_args)
 
-    # Default class
+    # Default class (for htb and hfsc)
     if qdisc.default:
         default_id = result.class_ids.get(qdisc.default, "")
         if default_id:
@@ -179,6 +212,25 @@ def _generate_class(
         if "ceil" in params:
             parts.extend(["ceil", params["ceil"]])
 
+    elif cls.class_type == "hfsc":
+        params = dict(cls.params)
+        # HFSC classes use service curves: sc, rt, ls, ul
+        # Each is a string containing the full curve spec,
+        # e.g. "m1 100mbit d 50ms m2 10mbit" or just "rate 10mbit"
+        for key in ("sc", "rt", "ls", "ul"):
+            if key in params:
+                value = params[key]
+                # Resolve speed aliases within the curve string
+                # Simple approach: resolve each word that looks like a speed
+                words = value.split()
+                resolved_words = [_resolve_speed(w, config) for w in words]
+                parts.append(key)
+                parts.extend(resolved_words)
+
+    elif cls.class_type == "prio":
+        # Prio classes have no parameters — they are band identifiers
+        pass
+
     # Comment
     parts.append(f"# {cls.name}")
 
@@ -214,11 +266,18 @@ def _generate_filter(
 
     # Plugin-generated args (match expressions, handle, etc.)
     plugin = Registry.get_filter(filt.filter_type)
-    plugin_params = {
-        "ip_matches": filt.ip_matches,
-        "hosts": config.hosts,
-        "handle": filt.handle,
-    }
+
+    if filt.filter_type == "flower":
+        plugin_params = {
+            "match_params": filt.match_params,
+            "hosts": config.hosts,
+        }
+    else:
+        plugin_params = {
+            "ip_matches": filt.ip_matches,
+            "hosts": config.hosts,
+            "handle": filt.handle,
+        }
     plugin_args = plugin.generate(plugin_params)
     parts.extend(plugin_args)
 

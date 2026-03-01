@@ -1,13 +1,25 @@
+import { useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { FilterNode as FilterNodeType, FilterType } from "../types";
-import { FILTER_TYPES } from "../types";
+import { FILTER_TYPES, FILTER_DESCRIPTIONS } from "../types";
 import { useStore } from "../store";
+import { ComboInput } from "../components/ComboInput";
+import { useHostSuggestions } from "../hooks/useSuggestions";
 
 export function FilterNode({ id, data }: NodeProps<FilterNodeType>) {
   const updateNodeData = useStore((s) => s.updateNodeData);
+  const hostSuggestions = useHostSuggestions();
+  const [showMore, setShowMore] = useState(false);
+
+  // Show expanded if protocol is non-default
+  const expanded = showMore || (data.protocol !== "ip" && data.protocol !== "");
 
   const updateIpMatch = (key: string, value: string) => {
     updateNodeData(id, { ipMatches: { ...data.ipMatches, [key]: value } });
+  };
+
+  const updateMatchParam = (key: string, value: string) => {
+    updateNodeData(id, { matchParams: { ...(data.matchParams || {}), [key]: value } });
   };
 
   return (
@@ -31,6 +43,7 @@ export function FilterNode({ id, data }: NodeProps<FilterNodeType>) {
                 filterType: e.target.value as FilterType,
                 handle: "",
                 ipMatches: {},
+                matchParams: {},
               })
             }
           >
@@ -41,16 +54,8 @@ export function FilterNode({ id, data }: NodeProps<FilterNodeType>) {
             ))}
           </select>
         </div>
-        <div className="node-field">
-          <label>protocol</label>
-          <select
-            value={data.protocol}
-            onChange={(e) => updateNodeData(id, { protocol: e.target.value })}
-          >
-            <option value="ip">ip</option>
-            <option value="ipv6">ipv6</option>
-            <option value="">—</option>
-          </select>
+        <div className="text-[10px] text-gray-400 italic px-1 mb-1">
+          {FILTER_DESCRIPTIONS[data.filterType]}
         </div>
         <div className="node-field">
           <label>prio</label>
@@ -60,6 +65,25 @@ export function FilterNode({ id, data }: NodeProps<FilterNodeType>) {
             placeholder=""
           />
         </div>
+        {expanded && (
+          <div className="node-field">
+            <label>protocol</label>
+            <select
+              value={data.protocol}
+              onChange={(e) => updateNodeData(id, { protocol: e.target.value })}
+            >
+              <option value="ip">ip</option>
+              <option value="ipv6">ipv6</option>
+              <option value="">—</option>
+            </select>
+          </div>
+        )}
+        <button
+          className="text-[10px] text-gray-400 hover:text-gray-600 cursor-pointer px-1 mb-1"
+          onClick={() => setShowMore(!showMore)}
+        >
+          {expanded ? "- less" : "+ more"}
+        </button>
         {data.filterType === "fw" && (
           <div className="node-field">
             <label>handle</label>
@@ -75,15 +99,84 @@ export function FilterNode({ id, data }: NodeProps<FilterNodeType>) {
             <div className="mt-1 mb-0.5 text-[10px] text-gray-400 font-semibold uppercase tracking-wide px-1">
               IP Match
             </div>
-            {(["dst", "src", "dport", "sport"] as const).map((field) => (
+            {(["dst", "src"] as const).map((field) => (
+              <div className="node-field" key={field}>
+                <label>{field}</label>
+                <ComboInput
+                  value={data.ipMatches[field] || ""}
+                  onChange={(val) => updateIpMatch(field, val)}
+                  suggestions={hostSuggestions}
+                  placeholder="192.168.1.0/24"
+                />
+              </div>
+            ))}
+            {(["dport", "sport"] as const).map((field) => (
               <div className="node-field" key={field}>
                 <label>{field}</label>
                 <input
                   value={data.ipMatches[field] || ""}
                   onChange={(e) => updateIpMatch(field, e.target.value)}
-                  placeholder={
-                    field.endsWith("port") ? "80" : "192.168.1.0/24"
-                  }
+                  placeholder="80"
+                />
+              </div>
+            ))}
+          </>
+        )}
+        {data.filterType === "flower" && (
+          <>
+            <div className="mt-1 mb-0.5 text-[10px] text-gray-400 font-semibold uppercase tracking-wide px-1">
+              Flower Match
+            </div>
+            {(["dst_ip", "src_ip"] as const).map((field) => (
+              <div className="node-field" key={field}>
+                <label>{field}</label>
+                <ComboInput
+                  value={(data.matchParams || {})[field] || ""}
+                  onChange={(val) => updateMatchParam(field, val)}
+                  suggestions={hostSuggestions}
+                  placeholder="192.168.1.0/24"
+                />
+              </div>
+            ))}
+            {(["dst_port", "src_port"] as const).map((field) => (
+              <div className="node-field" key={field}>
+                <label>{field}</label>
+                <input
+                  value={(data.matchParams || {})[field] || ""}
+                  onChange={(e) => updateMatchParam(field, e.target.value)}
+                  placeholder="80"
+                />
+              </div>
+            ))}
+            <div className="node-field">
+              <label>ip_proto</label>
+              <select
+                value={(data.matchParams || {}).ip_proto || ""}
+                onChange={(e) => updateMatchParam("ip_proto", e.target.value)}
+              >
+                <option value="">--</option>
+                <option value="tcp">tcp</option>
+                <option value="udp">udp</option>
+                <option value="icmp">icmp</option>
+              </select>
+            </div>
+            {(["src_mac", "dst_mac"] as const).map((field) => (
+              <div className="node-field" key={field}>
+                <label>{field}</label>
+                <input
+                  value={(data.matchParams || {})[field] || ""}
+                  onChange={(e) => updateMatchParam(field, e.target.value)}
+                  placeholder="aa:bb:cc:dd:ee:ff"
+                />
+              </div>
+            ))}
+            {(["vlan_id", "vlan_prio", "indev"] as const).map((field) => (
+              <div className="node-field" key={field}>
+                <label>{field}</label>
+                <input
+                  value={(data.matchParams || {})[field] || ""}
+                  onChange={(e) => updateMatchParam(field, e.target.value)}
+                  placeholder=""
                 />
               </div>
             ))}

@@ -1,0 +1,31 @@
+# Priority scheduler with 3 bands and u32 filters directing traffic
+
+[shaper.sched]
+dev = "eth0"
+type = "prio"
+bands = "3"
+priomap = "1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1"
+
+[class.band0]
+type = "prio"
+parent = "sched"
+
+[class.band1]
+type = "prio"
+parent = "sched"
+
+[class.band2]
+type = "prio"
+parent = "sched"
+
+# Leaf qdisc on band0 (high priority)
+[shaper.sfq_hi]
+parent = "band0"
+type = "sfq"
+
+# Filter: send SSH traffic to band0 (high priority)
+[match.ssh]
+protocol = "ip"
+parent = "sched"
+sendTo = "band0"
+ip = {dport = "22"}

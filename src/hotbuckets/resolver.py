@@ -140,8 +140,8 @@ def resolve(config: TrafficConfig) -> ResolverResult:
 
             result.qdisc_handles[name] = handle
 
-            # Track ingress qdiscs
-            if q.qdisc_type == "ingress":
+            # Track ingress/clsact qdiscs
+            if q.qdisc_type in ("ingress", "clsact"):
                 dev = resolve_device(name)
                 result.ingress_devices.add(dev)
 

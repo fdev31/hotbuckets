@@ -261,3 +261,257 @@ class TestDropActionPlugin:
     def test_generate_ignores_params(self):
         plugin = Registry.get_action("drop")
         assert plugin.generate({"foo": "bar"}) == ["action", "drop"]
+
+
+# ── New Tier 1 qdisc plugins ─────────────────────────────────────────────────
+
+
+class TestPrioPlugin:
+    def test_generate_empty(self):
+        plugin = Registry.get_qdisc("prio")
+        assert plugin.generate({}) == []
+
+    def test_generate_with_bands(self):
+        plugin = Registry.get_qdisc("prio")
+        result = plugin.generate({"bands": "3"})
+        assert result == ["bands", "3"]
+
+    def test_generate_with_priomap(self):
+        plugin = Registry.get_qdisc("prio")
+        result = plugin.generate({"priomap": "1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1"})
+        assert result == ["priomap", "1", "2", "2", "2", "1", "2", "0", "0", "1", "1", "1", "1", "1", "1", "1", "1"]
+
+    def test_generate_with_bands_and_priomap(self):
+        plugin = Registry.get_qdisc("prio")
+        result = plugin.generate({"bands": "4", "priomap": "1 2 3 3 1 2 0 0 1 1 1 1 1 1 1 1"})
+        assert result == [
+            "bands",
+            "4",
+            "priomap",
+            "1",
+            "2",
+            "3",
+            "3",
+            "1",
+            "2",
+            "0",
+            "0",
+            "1",
+            "1",
+            "1",
+            "1",
+            "1",
+            "1",
+            "1",
+            "1",
+        ]
+
+    def test_validate_ok(self):
+        plugin = Registry.get_qdisc("prio")
+        assert plugin.validate({}) == []
+        assert plugin.validate({"bands": "3"}) == []
+
+    def test_validate_bands_too_low(self):
+        plugin = Registry.get_qdisc("prio")
+        errors = plugin.validate({"bands": "1"})
+        assert len(errors) == 1
+        assert "2-16" in errors[0]
+
+    def test_validate_bands_too_high(self):
+        plugin = Registry.get_qdisc("prio")
+        errors = plugin.validate({"bands": "17"})
+        assert len(errors) == 1
+        assert "2-16" in errors[0]
+
+    def test_validate_bands_not_integer(self):
+        plugin = Registry.get_qdisc("prio")
+        errors = plugin.validate({"bands": "abc"})
+        assert len(errors) == 1
+        assert "integer" in errors[0]
+
+    def test_validate_priomap_wrong_count(self):
+        plugin = Registry.get_qdisc("prio")
+        errors = plugin.validate({"priomap": "1 2 3"})
+        assert len(errors) == 1
+        assert "16" in errors[0]
+
+
+class TestHfscPlugin:
+    def test_generate_empty(self):
+        plugin = Registry.get_qdisc("hfsc")
+        assert plugin.generate({}) == []
+
+    def test_generate_ignores_params(self):
+        """default is handled by script.py, not the plugin."""
+        plugin = Registry.get_qdisc("hfsc")
+        assert plugin.generate({"default": "1"}) == []
+
+    def test_validate_always_passes(self):
+        plugin = Registry.get_qdisc("hfsc")
+        assert plugin.validate({}) == []
+
+
+class TestClsactPlugin:
+    def test_generate_empty(self):
+        plugin = Registry.get_qdisc("clsact")
+        assert plugin.generate({}) == []
+
+    def test_generate_ignores_params(self):
+        plugin = Registry.get_qdisc("clsact")
+        assert plugin.generate({"foo": "bar"}) == []
+
+    def test_validate_always_passes(self):
+        plugin = Registry.get_qdisc("clsact")
+        assert plugin.validate({}) == []
+
+
+# ── New Tier 1 filter plugins ────────────────────────────────────────────────
+
+
+class TestFlowerFilterPlugin:
+    def test_generate_single_match(self):
+        plugin = Registry.get_filter("flower")
+        result = plugin.generate({"match_params": {"dst_ip": "10.0.0.1"}, "hosts": {}})
+        assert result == ["dst_ip", "10.0.0.1"]
+
+    def test_generate_multiple_matches(self):
+        plugin = Registry.get_filter("flower")
+        result = plugin.generate(
+            {
+                "match_params": {"dst_ip": "10.0.0.1", "ip_proto": "tcp", "dst_port": "80"},
+                "hosts": {},
+            }
+        )
+        # Stable order: dst_ip, ip_proto, dst_port
+        assert result == ["dst_ip", "10.0.0.1", "ip_proto", "tcp", "dst_port", "80"]
+
+    def test_generate_host_alias_src_ip(self):
+        plugin = Registry.get_filter("flower")
+        result = plugin.generate(
+            {
+                "match_params": {"src_ip": "myhost"},
+                "hosts": {"myhost": "192.168.1.10"},
+            }
+        )
+        assert result == ["src_ip", "192.168.1.10"]
+
+    def test_generate_host_alias_dst_ip(self):
+        plugin = Registry.get_filter("flower")
+        result = plugin.generate(
+            {
+                "match_params": {"dst_ip": "server"},
+                "hosts": {"server": "10.0.0.5"},
+            }
+        )
+        assert result == ["dst_ip", "10.0.0.5"]
+
+    def test_generate_no_alias_for_non_ip(self):
+        """Host alias resolution only applies to src_ip and dst_ip."""
+        plugin = Registry.get_filter("flower")
+        result = plugin.generate(
+            {
+                "match_params": {"dst_port": "myhost"},
+                "hosts": {"myhost": "192.168.1.10"},
+            }
+        )
+        assert result == ["dst_port", "myhost"]
+
+    def test_generate_all_fields(self):
+        plugin = Registry.get_filter("flower")
+        result = plugin.generate(
+            {
+                "match_params": {
+                    "src_ip": "1.2.3.4",
+                    "dst_ip": "5.6.7.8",
+                    "ip_proto": "udp",
+                    "src_port": "1234",
+                    "dst_port": "5678",
+                    "src_mac": "aa:bb:cc:dd:ee:ff",
+                    "dst_mac": "11:22:33:44:55:66",
+                    "vlan_id": "100",
+                    "vlan_prio": "3",
+                    "indev": "eth0",
+                },
+                "hosts": {},
+            }
+        )
+        expected = [
+            "src_ip",
+            "1.2.3.4",
+            "dst_ip",
+            "5.6.7.8",
+            "ip_proto",
+            "udp",
+            "src_port",
+            "1234",
+            "dst_port",
+            "5678",
+            "src_mac",
+            "aa:bb:cc:dd:ee:ff",
+            "dst_mac",
+            "11:22:33:44:55:66",
+            "vlan_id",
+            "100",
+            "vlan_prio",
+            "3",
+            "indev",
+            "eth0",
+        ]
+        assert result == expected
+
+    def test_generate_empty(self):
+        plugin = Registry.get_filter("flower")
+        assert plugin.generate({"match_params": {}, "hosts": {}}) == []
+
+    def test_validate_empty_match_params(self):
+        plugin = Registry.get_filter("flower")
+        errors = plugin.validate({"match_params": {}})
+        assert len(errors) == 1
+        assert "at least one" in errors[0]
+
+    def test_validate_with_match_params(self):
+        plugin = Registry.get_filter("flower")
+        assert plugin.validate({"match_params": {"dst_ip": "10.0.0.1"}}) == []
+
+
+# ── New Tier 1 action plugins ────────────────────────────────────────────────
+
+
+class TestSkbeditActionPlugin:
+    def test_generate_mark(self):
+        plugin = Registry.get_action("skbedit")
+        result = plugin.generate({"mark": "42"})
+        assert result == ["action", "skbedit", "mark", "42"]
+
+    def test_generate_priority(self):
+        plugin = Registry.get_action("skbedit")
+        result = plugin.generate({"priority": "7"})
+        assert result == ["action", "skbedit", "priority", "7"]
+
+    def test_generate_queue_mapping(self):
+        plugin = Registry.get_action("skbedit")
+        result = plugin.generate({"queue_mapping": "3"})
+        assert result == ["action", "skbedit", "queue_mapping", "3"]
+
+    def test_generate_all_params(self):
+        plugin = Registry.get_action("skbedit")
+        result = plugin.generate({"mark": "10", "priority": "5", "queue_mapping": "2"})
+        assert result == ["action", "skbedit", "mark", "10", "priority", "5", "queue_mapping", "2"]
+
+    def test_validate_missing_all(self):
+        plugin = Registry.get_action("skbedit")
+        errors = plugin.validate({})
+        assert len(errors) == 1
+        assert "at least one" in errors[0]
+
+    def test_validate_with_mark(self):
+        plugin = Registry.get_action("skbedit")
+        assert plugin.validate({"mark": "42"}) == []
+
+    def test_validate_with_priority(self):
+        plugin = Registry.get_action("skbedit")
+        assert plugin.validate({"priority": "7"}) == []
+
+    def test_validate_with_queue_mapping(self):
+        plugin = Registry.get_action("skbedit")
+        assert plugin.validate({"queue_mapping": "3"}) == []

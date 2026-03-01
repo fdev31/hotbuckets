@@ -18,6 +18,26 @@ class TestCliArgParsing:
         with pytest.raises(SystemExit):
             main([])
 
+    def test_list_flag_no_config(self, capsys):
+        """--list should work without a config file."""
+        main(["--list"])
+        captured = capsys.readouterr()
+        assert "Qdiscs:" in captured.out
+        assert "Filters:" in captured.out
+        assert "Actions:" in captured.out
+        assert "htb" in captured.out
+        assert "prio" in captured.out
+        assert "flower" in captured.out
+        assert "skbedit" in captured.out
+
+    def test_list_flag_shows_descriptions(self, capsys):
+        """--list should show plugin descriptions."""
+        main(["--list"])
+        captured = capsys.readouterr()
+        # Check a few descriptions are present
+        assert "Token Bucket" in captured.out or "tbf" in captured.out
+        assert "Priority scheduler" in captured.out or "prio" in captured.out
+
     def test_version_flag(self, capsys):
         with pytest.raises(SystemExit) as exc_info:
             main(["--version"])

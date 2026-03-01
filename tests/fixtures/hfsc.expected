@@ -1,0 +1,6 @@
+tc qdisc del dev eth0 root
+set -ex
+tc qdisc add dev eth0 root handle 1: hfsc default 2 # root
+tc class add dev eth0 parent 1: classid 1:1 hfsc sc m1 100mbit d 50ms m2 10mbit # realtime
+tc class add dev eth0 parent 1: classid 1:2 hfsc ls m1 50mbit d 100ms m2 5mbit # bulk
+tc filter add dev eth0 protocol ip parent 1: u32 match ip dport 5060 0xffff flowid 1:1 # voip

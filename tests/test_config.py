@@ -297,3 +297,203 @@ class TestConfigErrors:
 [shaper]
 root = "not a table"
 """)
+
+
+class TestFlowerFilterParsing:
+    """Test [match.*.flower] sub-table parsing for flower filters."""
+
+    def test_flower_subtable_basic(self):
+        config = load_string("""
+[match.filt1]
+protocol = "ip"
+parent = "root"
+type = "flower"
+
+[match.filt1.flower]
+dst_ip = "10.0.0.1"
+ip_proto = "tcp"
+dst_port = "80"
+""")
+        f = config.filters[0]
+        assert f.filter_type == "flower"
+        assert f.match_params == {"dst_ip": "10.0.0.1", "ip_proto": "tcp", "dst_port": "80"}
+
+    def test_flower_subtable_empty(self):
+        config = load_string("""
+[match.filt1]
+type = "flower"
+parent = "root"
+
+[match.filt1.flower]
+""")
+        f = config.filters[0]
+        assert f.filter_type == "flower"
+        assert f.match_params == {}
+
+    def test_flower_with_action_subtable(self):
+        config = load_string("""
+[match.classify]
+dev = "eth0"
+protocol = "ip"
+parent = "root"
+type = "flower"
+
+[match.classify.flower]
+dst_ip = "10.0.0.1"
+ip_proto = "tcp"
+
+[match.classify.action]
+type = "skbedit"
+mark = "42"
+""")
+        f = config.filters[0]
+        assert f.filter_type == "flower"
+        assert f.match_params == {"dst_ip": "10.0.0.1", "ip_proto": "tcp"}
+        assert len(f.actions) == 1
+        assert f.actions[0].type == "skbedit"
+        assert f.actions[0].params["mark"] == "42"
+
+    def test_flower_match_params_interpolation(self):
+        """Variable interpolation should work in flower match_params."""
+        config = load_string("""
+[vars]
+server = "10.0.0.5"
+
+[match.filt1]
+parent = "root"
+type = "flower"
+
+[match.filt1.flower]
+dst_ip = "{server}"
+""")
+        f = config.filters[0]
+        assert f.match_params == {"dst_ip": "10.0.0.5"}
+
+    def test_flower_does_not_interfere_with_u32(self):
+        """A u32 filter should not have match_params."""
+        config = load_string("""
+[match.filt1]
+protocol = "ip"
+parent = "root"
+sendTo = "myclass"
+ip = {dport = "80"}
+""")
+        f = config.filters[0]
+        assert f.filter_type == "u32"
+        assert f.ip_matches == {"dport": "80"}
+        assert f.match_params == {}
+
+
+class TestNewQdiscParsing:
+    """Test parsing of new Tier 1 qdisc types."""
+
+    def test_prio_qdisc(self):
+        config = load_string("""
+[shaper.sched]
+dev = "eth0"
+type = "prio"
+bands = "4"
+""")
+        q = config.qdiscs[0]
+        assert q.qdisc_type == "prio"
+        assert q.params["bands"] == "4"
+
+    def test_hfsc_qdisc(self):
+        config = load_string("""
+[shaper.root]
+dev = "eth0"
+type = "hfsc"
+default = "default_class"
+""")
+        q = config.qdiscs[0]
+        assert q.qdisc_type == "hfsc"
+        assert q.default == "default_class"
+
+    def test_clsact_qdisc(self):
+        config = load_string("""
+[shaper.classify]
+dev = "eth0"
+type = "clsact"
+handle = "ffff:"
+""")
+        q = config.qdiscs[0]
+        assert q.qdisc_type == "clsact"
+        assert q.handle == "ffff:"
+
+    def test_hfsc_class(self):
+        config = load_string("""
+[class.realtime]
+type = "hfsc"
+parent = "root"
+rt = "m1 100mbit d 50ms m2 10mbit"
+ls = "m1 50mbit d 100ms m2 5mbit"
+""")
+        c = config.classes[0]
+        assert c.class_type == "hfsc"
+        assert c.params["rt"] == "m1 100mbit d 50ms m2 10mbit"
+        assert c.params["ls"] == "m1 50mbit d 100ms m2 5mbit"
+
+
+class TestPrioAutoGeneration:
+    """Test auto-generation of prio band classes."""
+
+    def test_auto_generates_3_bands_default(self):
+        config = load_string("""
+[shaper.sched]
+dev = "eth0"
+type = "prio"
+""")
+        assert len(config.classes) == 3
+        assert config.classes[0].name == "sched:band0"
+        assert config.classes[0].class_type == "prio"
+        assert config.classes[0].parent == "sched"
+        assert config.classes[1].name == "sched:band1"
+        assert config.classes[2].name == "sched:band2"
+
+    def test_auto_generates_custom_bands(self):
+        config = load_string("""
+[shaper.sched]
+dev = "eth0"
+type = "prio"
+bands = "5"
+""")
+        assert len(config.classes) == 5
+        for i in range(5):
+            assert config.classes[i].name == f"sched:band{i}"
+            assert config.classes[i].class_type == "prio"
+            assert config.classes[i].parent == "sched"
+
+    def test_no_auto_gen_if_user_defined_classes(self):
+        """If user already declares classes parented to the prio qdisc, skip auto-gen."""
+        config = load_string("""
+[shaper.sched]
+dev = "eth0"
+type = "prio"
+bands = "3"
+
+[class.high]
+type = "prio"
+parent = "sched"
+
+[class.med]
+type = "prio"
+parent = "sched"
+
+[class.low]
+type = "prio"
+parent = "sched"
+""")
+        # Should have exactly the 3 user-defined classes, no auto-generated ones
+        assert len(config.classes) == 3
+        names = [c.name for c in config.classes]
+        assert "high" in names
+        assert "med" in names
+        assert "low" in names
+
+    def test_auto_gen_does_not_affect_other_qdiscs(self):
+        config = load_string("""
+[shaper.root]
+dev = "eth0"
+type = "htb"
+""")
+        assert len(config.classes) == 0

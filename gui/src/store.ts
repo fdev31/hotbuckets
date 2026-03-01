@@ -172,10 +172,15 @@ export const useStore = create<AppState>((set, get) => ({
     const id = genId();
     const data: ClassData = {
       label: `class${get().nodes.filter((n) => n.type === "class").length + 1}`,
+      classType: "htb",
       rate: "",
       ceil: "",
       burst: "",
       prio: "",
+      sc: "",
+      rt: "",
+      ls: "",
+      ul: "",
     };
     set({
       nodes: [
@@ -194,6 +199,7 @@ export const useStore = create<AppState>((set, get) => ({
       prio: "",
       handle: "",
       ipMatches: {},
+      matchParams: {},
     };
     set({
       nodes: [
@@ -213,6 +219,9 @@ export const useStore = create<AppState>((set, get) => ({
       target: "",
       rate: "",
       burst: "",
+      mark: "",
+      priority: "",
+      queueMapping: "",
     };
     set({
       nodes: [

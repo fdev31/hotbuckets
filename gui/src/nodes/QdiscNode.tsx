@@ -1,10 +1,13 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { QdiscNode as QdiscNodeType, QdiscType } from "../types";
-import { QDISC_TYPES, QDISC_PARAMS } from "../types";
+import { QDISC_TYPES, QDISC_PARAMS, QDISC_DESCRIPTIONS } from "../types";
 import { useStore } from "../store";
+import { ComboInput } from "../components/ComboInput";
+import { useSpeedSuggestions } from "../hooks/useSuggestions";
 
 export function QdiscNode({ id, data }: NodeProps<QdiscNodeType>) {
   const updateNodeData = useStore((s) => s.updateNodeData);
+  const speedSuggestions = useSpeedSuggestions();
 
   const paramDefs = QDISC_PARAMS[data.qdiscType] || [];
 
@@ -32,7 +35,7 @@ export function QdiscNode({ id, data }: NodeProps<QdiscNodeType>) {
               updateNodeData(id, {
                 qdiscType: e.target.value as QdiscType,
                 params: {},
-                handle: e.target.value === "ingress" ? "ffff:" : "",
+                handle: (e.target.value === "ingress" || e.target.value === "clsact") ? "ffff:" : "",
               })
             }
           >
@@ -43,7 +46,10 @@ export function QdiscNode({ id, data }: NodeProps<QdiscNodeType>) {
             ))}
           </select>
         </div>
-        {data.qdiscType === "ingress" && (
+        <div className="text-[10px] text-gray-400 italic px-1 mb-1">
+          {QDISC_DESCRIPTIONS[data.qdiscType]}
+        </div>
+        {(data.qdiscType === "ingress" || data.qdiscType === "clsact") && (
           <div className="node-field">
             <label>handle</label>
             <input
@@ -56,7 +62,7 @@ export function QdiscNode({ id, data }: NodeProps<QdiscNodeType>) {
         {paramDefs.map((p) =>
           p.type === "toggle" ? (
             <div className="node-field" key={p.key}>
-              <label>{p.label}</label>
+              <label title={p.description}>{p.label}</label>
               <input
                 type="checkbox"
                 checked={data.params[p.key] === "true"}
@@ -65,9 +71,19 @@ export function QdiscNode({ id, data }: NodeProps<QdiscNodeType>) {
                 }
               />
             </div>
+          ) : p.type === "speed" ? (
+            <div className="node-field" key={p.key}>
+              <label title={p.description}>{p.label}</label>
+              <ComboInput
+                value={data.params[p.key] || ""}
+                onChange={(val) => updateParam(p.key, val)}
+                suggestions={speedSuggestions}
+                placeholder={p.placeholder}
+              />
+            </div>
           ) : (
             <div className="node-field" key={p.key}>
-              <label>{p.label}</label>
+              <label title={p.description}>{p.label}</label>
               <input
                 value={data.params[p.key] || ""}
                 onChange={(e) => updateParam(p.key, e.target.value)}

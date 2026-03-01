@@ -185,6 +185,7 @@ export function exportToml(ctx: ExportContext): string {
   const classes = ctx.nodes.filter((n) => n.type === "class");
   for (const node of classes) {
     const c = node.data as ClassData;
+    const classType = c.classType || "htb";
     lines.push(`[class.${c.label}]`);
 
     // parent: whoever connects to this class (qdisc or another class)
@@ -197,10 +198,23 @@ export function exportToml(ctx: ExportContext): string {
       lines.push(`parent = ${quoteIfNeeded(parentLabel)}`);
     }
 
-    if (c.rate) lines.push(`rate = ${quoteIfNeeded(c.rate)}`);
-    if (c.ceil) lines.push(`ceil = ${quoteIfNeeded(c.ceil)}`);
-    if (c.burst) lines.push(`burst = ${quoteIfNeeded(c.burst)}`);
-    if (c.prio) lines.push(`prio = ${quoteIfNeeded(c.prio)}`);
+    // Emit class type if not htb (htb is default)
+    if (classType !== "htb") {
+      lines.push(`type = ${quoteIfNeeded(classType)}`);
+    }
+
+    if (classType === "htb") {
+      if (c.rate) lines.push(`rate = ${quoteIfNeeded(c.rate)}`);
+      if (c.ceil) lines.push(`ceil = ${quoteIfNeeded(c.ceil)}`);
+      if (c.burst) lines.push(`burst = ${quoteIfNeeded(c.burst)}`);
+      if (c.prio) lines.push(`prio = ${quoteIfNeeded(c.prio)}`);
+    } else if (classType === "hfsc") {
+      if (c.sc) lines.push(`sc = ${quoteIfNeeded(c.sc)}`);
+      if (c.rt) lines.push(`rt = ${quoteIfNeeded(c.rt)}`);
+      if (c.ls) lines.push(`ls = ${quoteIfNeeded(c.ls)}`);
+      if (c.ul) lines.push(`ul = ${quoteIfNeeded(c.ul)}`);
+    }
+    // prio classes: no params
     lines.push("");
   }
 
@@ -260,6 +274,18 @@ export function exportToml(ctx: ExportContext): string {
       }
     }
 
+    // flower match params as sub-table
+    if (f.filterType === "flower" && f.matchParams) {
+      const hasParams = Object.values(f.matchParams).some((v) => v);
+      if (hasParams) {
+        lines.push("");
+        lines.push(`[match.${f.label}.flower]`);
+        for (const [key, value] of Object.entries(f.matchParams)) {
+          if (value) lines.push(`${key} = ${quoteIfNeeded(value)}`);
+        }
+      }
+    }
+
     // Actions as sub-table
     if (actions.length > 0) {
       const a = actions[0].data as ActionData;
@@ -273,6 +299,10 @@ export function exportToml(ctx: ExportContext): string {
       } else if (a.actionType === "police") {
         if (a.rate) lines.push(`rate = ${quoteIfNeeded(a.rate)}`);
         if (a.burst) lines.push(`burst = ${quoteIfNeeded(a.burst)}`);
+      } else if (a.actionType === "skbedit") {
+        if (a.mark) lines.push(`mark = ${quoteIfNeeded(a.mark)}`);
+        if (a.priority) lines.push(`priority = ${quoteIfNeeded(a.priority)}`);
+        if (a.queueMapping) lines.push(`queue_mapping = ${quoteIfNeeded(a.queueMapping)}`);
       }
       // "drop" has no extra params
     }

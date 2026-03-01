@@ -1,0 +1,8 @@
+tc qdisc del dev eth0 root
+set -ex
+tc qdisc add dev eth0 root handle 1: prio bands 3 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1 # sched
+tc class add dev eth0 parent 1: classid 1:1 prio # band0
+tc class add dev eth0 parent 1: classid 1:2 prio # band1
+tc class add dev eth0 parent 1: classid 1:3 prio # band2
+tc qdisc add dev eth0 parent 1:1 handle 2: sfq perturb 10 # sfq_hi
+tc filter add dev eth0 protocol ip parent 1: u32 match ip dport 22 0xffff flowid 1:1 # ssh

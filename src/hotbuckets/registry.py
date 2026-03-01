@@ -3,9 +3,19 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
 from hotbuckets.errors import PluginError
+
+
+@dataclass(frozen=True)
+class ParamDoc:
+    """Documentation for a single plugin parameter."""
+
+    description: str
+    required: bool = False
+    example: str = ""
 
 
 class ResolverContext:
@@ -25,6 +35,9 @@ class ResolverContext:
 class QdiscPlugin(ABC):
     """Base class for qdisc plugins."""
 
+    description: str = ""
+    PARAMS: dict[str, ParamDoc] = {}
+
     @abstractmethod
     def validate(self, params: dict[str, Any]) -> list[str]:
         """Validate qdisc parameters. Return list of error messages (empty = valid)."""
@@ -37,6 +50,9 @@ class QdiscPlugin(ABC):
 class FilterPlugin(ABC):
     """Base class for filter plugins."""
 
+    description: str = ""
+    PARAMS: dict[str, ParamDoc] = {}
+
     @abstractmethod
     def validate(self, params: dict[str, Any]) -> list[str]:
         """Validate filter parameters. Return list of error messages (empty = valid)."""
@@ -48,6 +64,9 @@ class FilterPlugin(ABC):
 
 class ActionPlugin(ABC):
     """Base class for action plugins."""
+
+    description: str = ""
+    PARAMS: dict[str, ParamDoc] = {}
 
     @abstractmethod
     def validate(self, params: dict[str, Any]) -> list[str]:
@@ -133,6 +152,48 @@ class Registry:
     @classmethod
     def available_actions(cls) -> list[str]:
         return sorted(cls._actions.keys())
+
+    @classmethod
+    def list_all(cls) -> dict[str, list[dict[str, Any]]]:
+        """Return structured info about all registered plugins."""
+        result: dict[str, list[dict[str, Any]]] = {"qdiscs": [], "filters": [], "actions": []}
+        for name in sorted(cls._qdiscs):
+            plugin_cls = cls._qdiscs[name]
+            result["qdiscs"].append(
+                {
+                    "name": name,
+                    "description": plugin_cls.description,
+                    "params": {
+                        k: {"description": v.description, "required": v.required, "example": v.example}
+                        for k, v in plugin_cls.PARAMS.items()
+                    },
+                }
+            )
+        for name in sorted(cls._filters):
+            plugin_cls = cls._filters[name]
+            result["filters"].append(
+                {
+                    "name": name,
+                    "description": plugin_cls.description,
+                    "params": {
+                        k: {"description": v.description, "required": v.required, "example": v.example}
+                        for k, v in plugin_cls.PARAMS.items()
+                    },
+                }
+            )
+        for name in sorted(cls._actions):
+            plugin_cls = cls._actions[name]
+            result["actions"].append(
+                {
+                    "name": name,
+                    "description": plugin_cls.description,
+                    "params": {
+                        k: {"description": v.description, "required": v.required, "example": v.example}
+                        for k, v in plugin_cls.PARAMS.items()
+                    },
+                }
+            )
+        return result
 
     @classmethod
     def _reset(cls) -> None:

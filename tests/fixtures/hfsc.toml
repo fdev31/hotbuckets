@@ -1,0 +1,22 @@
+# HFSC with service curves for latency-sensitive traffic
+
+[shaper.root]
+dev = "eth0"
+type = "hfsc"
+default = "bulk"
+
+[class.realtime]
+type = "hfsc"
+parent = "root"
+sc = "m1 100mbit d 50ms m2 10mbit"
+
+[class.bulk]
+type = "hfsc"
+parent = "root"
+ls = "m1 50mbit d 100ms m2 5mbit"
+
+[match.voip]
+protocol = "ip"
+parent = "root"
+sendTo = "realtime"
+ip = {dport = "5060"}

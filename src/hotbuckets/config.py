@@ -106,6 +106,9 @@ def _parse_raw(raw: dict[str, Any]) -> TrafficConfig:
             raise ConfigError(f"Expected a table for class entry", "class", name)
         config.classes.append(_parse_class(name, data))
 
+    # Auto-generate prio band classes
+    _auto_generate_prio_classes(config)
+
     # Filters (matches)
     for name, data in raw.get("match", {}).items():
         if not isinstance(data, dict):
@@ -148,15 +151,56 @@ def _parse_class(name: str, data: dict[str, Any]) -> ClassConfig:
     )
 
 
+def _auto_generate_prio_classes(config: TrafficConfig) -> None:
+    """Auto-generate band classes for prio qdiscs.
+
+    For each prio qdisc, creates N band classes (default 3) named
+    '<qdisc_name>:band<i>' unless the user already defined classes
+    parented to that qdisc.
+    """
+    existing_parents: set[str] = {c.parent for c in config.classes}
+    generated: list[ClassConfig] = []
+
+    for q in config.qdiscs:
+        if q.qdisc_type != "prio":
+            continue
+        # Skip if user already defined classes for this qdisc
+        if q.name in existing_parents:
+            continue
+        bands = 3
+        if "bands" in q.params:
+            try:
+                bands = int(q.params["bands"])
+            except ValueError:
+                pass
+        for i in range(bands):
+            generated.append(
+                ClassConfig(
+                    name=f"{q.name}:band{i}",
+                    class_type="prio",
+                    parent=q.name,
+                    params={},
+                )
+            )
+
+    config.classes.extend(generated)
+
+
 def _parse_filter(name: str, data: dict[str, Any]) -> FilterConfig:
     """Parse a single [match.*] entry."""
-    known_keys = {"dev", "type", "parent", "sendTo", "protocol", "prio", "handle", "ip", "action"}
+    known_keys = {"dev", "type", "parent", "sendTo", "protocol", "prio", "handle", "ip", "action", "flower"}
 
-    # Parse IP matches
+    # Parse IP matches (for u32)
     ip_matches: dict[str, str] = {}
     raw_ip = data.get("ip", {})
     if isinstance(raw_ip, dict):
         ip_matches = {k: str(v) for k, v in raw_ip.items()}
+
+    # Parse flower match params (sub-table)
+    match_params: dict[str, str] = {}
+    raw_flower = data.get("flower", {})
+    if isinstance(raw_flower, dict):
+        match_params = {k: str(v) for k, v in raw_flower.items()}
 
     # Parse actions
     actions: list[ActionConfig] = []
@@ -183,6 +227,7 @@ def _parse_filter(name: str, data: dict[str, Any]) -> FilterConfig:
         prio=str(data.get("prio", "")),
         handle=str(data.get("handle", "")),
         ip_matches=ip_matches,
+        match_params=match_params,
         actions=tuple(actions),
     )
 
@@ -270,6 +315,7 @@ def _interpolate_variables(config: TrafficConfig) -> None:
                 prio=f.prio,
                 handle=f.handle,
                 ip_matches={k: _sub(v) for k, v in f.ip_matches.items()},
+                match_params={k: _sub(v) for k, v in f.match_params.items()},
                 actions=f.actions,
             )
         )

@@ -1,0 +1,25 @@
+# clsact + flower + skbedit: modern classification pipeline
+
+[hosts]
+webserver = "10.0.0.5"
+
+[shaper.classify]
+dev = "eth0"
+type = "clsact"
+handle = "ffff:"
+
+[match.mark_web]
+dev = "eth0"
+protocol = "ip"
+parent = "classify"
+type = "flower"
+
+[match.mark_web.flower]
+dst_ip = "webserver"
+ip_proto = "tcp"
+dst_port = "80"
+
+[match.mark_web.action]
+type = "skbedit"
+mark = "42"
+priority = "7"
