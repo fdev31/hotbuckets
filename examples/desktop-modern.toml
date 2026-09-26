@@ -14,8 +14,8 @@
 
 [vars]
 iface = "enp12s0"        # your network interface (ip link show)
-download = "450mbit"      # ~95% of your download speed
-upload = "45mbit"         # ~95% of your upload speed
+download = "100mbit"      # ~95% of your download speed
+upload = "40mbit"         # ~95% of your upload speed
 
 # ── Devices ──────────────────────────────────────────────────────
 
