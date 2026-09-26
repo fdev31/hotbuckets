@@ -1,0 +1,74 @@
+# Two interfaces, each with its own IFB for download shaping.
+# Verifies the IFB setup uses numifbs=2 and emits the modprobe only once.
+
+[devices.main0]
+dev = "eth0"
+
+[devices.main1]
+dev = "eth1"
+
+[devices.ifb0]
+dev = "ifb0"
+virtual = true
+type = "ifb"
+
+[devices.ifb1]
+dev = "ifb1"
+virtual = true
+type = "ifb"
+
+[shaper.ingress0]
+dev = "main0"
+type = "ingress"
+handle = "ffff:"
+
+[shaper.ingress1]
+dev = "main1"
+type = "ingress"
+handle = "ffff:"
+
+[shaper.download0]
+dev = "ifb0"
+type = "cake"
+bandwidth = "100mbit"
+diffserv4 = true
+
+[shaper.download1]
+dev = "ifb1"
+type = "cake"
+bandwidth = "200mbit"
+diffserv4 = true
+
+[shaper.upload0]
+dev = "main0"
+type = "cake"
+bandwidth = "10mbit"
+diffserv4 = true
+
+[shaper.upload1]
+dev = "main1"
+type = "cake"
+bandwidth = "20mbit"
+diffserv4 = true
+
+[match.redirect0]
+dev = "main0"
+parent = "ingress0"
+type = "matchall"
+
+[match.redirect0.action]
+type = "mirred"
+direction = "egress"
+mode = "redirect"
+target = "ifb0"
+
+[match.redirect1]
+dev = "main1"
+parent = "ingress1"
+type = "matchall"
+
+[match.redirect1.action]
+type = "mirred"
+direction = "egress"
+mode = "redirect"
+target = "ifb1"

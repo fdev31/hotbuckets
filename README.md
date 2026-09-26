@@ -143,6 +143,30 @@ You can also use the `--show` parameter to get a representation like this:
 
 ![graph](https://github.com/fdev31/hotbuckets/raw/main/examples/graph.png)
 
+## Auto-generate a configuration (`--auto`)
+
+Instead of writing the TOML by hand, `--auto` detects your default gateway
+interface, measures your real download/upload speeds, and emits a ready-to-use
+configuration (single interface, CAKE-based, with an IFB for download shaping):
+
+    htb --auto
+
+The measured speeds set the CAKE bandwidths. You can override them to skip the
+online test, bound the test time, or write to a file:
+
+    htb --auto --speed 950/100   # skip the test: 950 Mbit down / 100 Mbit up
+    htb --auto --timeout 90      # allow up to 90s for the speed test
+    htb --auto -o myconfig.toml  # write to a file instead of stdout
+
+Speeds are measured, in order, by:
+
+1. the `--speed` override (if given)
+2. `speedtest-cli --json` (real download + upload)
+3. a built-in download test (real download, upload estimated)
+4. the interface link speed with a typical efficiency factor (last resort, warns)
+
+Generate the script, review it, then run it with root to apply the shaping.
+
 ## Misc notes
 
 - shapers are qdiscs, the "main" type of traffic control object, some can use classes

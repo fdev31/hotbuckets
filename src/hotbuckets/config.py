@@ -73,6 +73,13 @@ def _parse_raw(raw: dict[str, Any]) -> TrafficConfig:
 
     # Devices (with legacy "interfaces" fallback)
     raw_devices = raw.get("devices", raw.get("interfaces", {}))
+    ifb_count = sum(
+        1
+        for val in raw_devices.values()
+        if isinstance(val, dict)
+        and bool(val.get("virtual", False))
+        and str(val.get("type", "")) == "ifb"
+    )
     for name, val in raw_devices.items():
         if isinstance(val, dict):
             dev_name = str(val.get("dev", name))
@@ -81,7 +88,7 @@ def _parse_raw(raw: dict[str, Any]) -> TrafficConfig:
             setup: list[str] = []
             if virtual and dev_type == "ifb":
                 setup = [
-                    f"modprobe ifb numifbs=1",
+                    f"modprobe ifb numifbs={ifb_count}",
                     f"ip link set dev {dev_name} up",
                 ]
             config.devices[name] = Device(

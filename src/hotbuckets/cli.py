@@ -39,6 +39,39 @@ def _print_list() -> None:
             print()
 
 
+def _parse_speed(value: str) -> tuple[int, int] | None:
+    """Parse a ``DL/UL`` Mbit override, or ``None`` if malformed."""
+    try:
+        down, up = value.split("/")
+        return int(down), int(up)
+    except (ValueError, AttributeError):
+        return None
+
+
+def _run_auto(args: argparse.Namespace) -> None:
+    """Detect the gateway interface, measure speeds, and emit the config."""
+    from hotbuckets import auto
+
+    speed = None
+    if args.speed is not None:
+        speed = _parse_speed(args.speed)
+        if speed is None:
+            print("Error: --speed must be DL/UL in Mbit, e.g. 950/100", file=sys.stderr)
+            sys.exit(1)
+
+    try:
+        toml_text, nic = auto.build_auto_config(timeout=args.timeout, speed=speed)
+    except auto.AutoConfigError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if args.output:
+        args.output.write_text(toml_text)
+        print(f"Generated config for '{nic}' -> {args.output}", file=sys.stderr)
+    else:
+        sys.stdout.write(toml_text)
+
+
 def main(argv: list[str] | None = None) -> None:
     """Main entry point for the htb command."""
     parser = argparse.ArgumentParser(
@@ -69,6 +102,23 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
     )
     parser.add_argument(
+        "--auto",
+        default=False,
+        help="auto-generate a config for the default gateway interface (measures real speeds)",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--speed",
+        help="override measured speeds in Mbit, e.g. 950/100 (with --auto)",
+        metavar="DL/UL",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=60,
+        help="speed test timeout in seconds (with --auto, default 60)",
+    )
+    parser.add_argument(
         "-o",
         "--output",
         help="write output to a file instead of stdout",
@@ -89,9 +139,14 @@ def main(argv: list[str] | None = None) -> None:
         _print_list()
         return
 
+    # --auto generates a config for the default gateway interface
+    if args.auto:
+        _run_auto(args)
+        return
+
     # All other modes require a config file
     if not args.config:
-        parser.error("CONFIG is required (unless using --list)")
+        parser.error("CONFIG is required (unless using --list or --auto)")
 
     # Import here to avoid circular imports and to ensure plugins are loaded
     from hotbuckets.config import load_file

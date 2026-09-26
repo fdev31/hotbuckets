@@ -39,9 +39,13 @@ def generate(config: TrafficConfig, result: ResolverResult) -> str:
 
     # Device setup commands (modprobe, ip link set, etc.)
     has_setup = False
+    seen_setup: set[str] = set()
     for dname in result.virtual_devices:
         dobj = config.devices[dname]
         for cmd in dobj.setup_commands:
+            if cmd in seen_setup:
+                continue
+            seen_setup.add(cmd)
             if not has_setup:
                 lines.append("# Device setup:")
                 has_setup = True
