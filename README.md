@@ -138,6 +138,11 @@ You can use the command `htb configuration.toml` to get the following output:
     tc filter add dev wlo1 protocol ip parent 1: u32 match ip dport 80 0xffff flowid 1:3 # filtHttp
     tc filter add dev wlo1 protocol ip parent 1: u32 match ip dport 443 0xffff flowid 1:3 # filtHttps
 
+To apply the rules directly instead of printing the script, add `--apply`. It
+runs the generated script with `sudo` when you are not root (equivalent to
+`htb configuration.toml | sudo sh`):
+
+    htb configuration.toml --apply
 
 You can also use the `--show` parameter to get a representation like this:
 
@@ -165,7 +170,12 @@ Speeds are measured, in order, by:
 3. a built-in download test (real download, upload estimated)
 4. the interface link speed with a typical efficiency factor (last resort, warns)
 
-Generate the script, review it, then run it with root to apply the shaping.
+To measure, generate, and apply in one step, add `--apply`:
+
+    htb --auto --apply
+
+It is recommended to generate first (`htb --auto`) and review the script
+before applying.
 
 ## Misc notes
 

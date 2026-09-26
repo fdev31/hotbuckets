@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from hotbuckets import auto
 from hotbuckets.cli import _parse_speed
 from hotbuckets.config import load_string
@@ -73,3 +75,78 @@ class TestFindGateway:
 
         monkeypatch.setattr(Path, "read_text", fake_read_text)
         assert auto.find_default_gateway_nic() == "eth9"
+
+
+class TestApply:
+    def test_apply_script_uses_sudo_when_not_root(self, monkeypatch):
+        import os
+        import shutil
+        import subprocess
+
+        from hotbuckets.cli import _apply_script
+
+        captured: dict = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            captured["input"] = kwargs.get("input")
+            return subprocess.CompletedProcess(cmd, 0)
+
+        monkeypatch.setattr(os, "geteuid", lambda: 1000)
+        monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/sudo")
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        _apply_script("echo hello")
+
+        assert captured["cmd"] == ["sudo", "sh", "-"]
+        assert captured["input"] == "echo hello"
+
+    def test_apply_script_skips_sudo_when_root(self, monkeypatch):
+        import os
+        import subprocess
+
+        from hotbuckets.cli import _apply_script
+
+        captured: dict = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            return subprocess.CompletedProcess(cmd, 0)
+
+        monkeypatch.setattr(os, "geteuid", lambda: 0)
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        _apply_script("echo hello")
+
+        assert captured["cmd"] == ["sh", "-"]
+
+    def test_apply_script_exits_on_failure(self, monkeypatch):
+        import os
+        import subprocess
+
+        from hotbuckets.cli import _apply_script
+
+        def fake_run(cmd, **kwargs):
+            return subprocess.CompletedProcess(cmd, 3)
+
+        monkeypatch.setattr(os, "geteuid", lambda: 0)
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        with pytest.raises(SystemExit) as exc:
+            _apply_script("echo hello")
+        assert exc.value.code == 3
+
+    def test_apply_toml_produces_and_applies_script(self, monkeypatch):
+        import hotbuckets.cli as cli
+
+        captured: dict = {}
+        monkeypatch.setattr(
+            cli, "_apply_script", lambda script: captured.update(script=script)
+        )
+
+        toml = auto.generate_toml("enp12s0", 950, 100, "speedtest-cli")
+        cli._apply_toml(toml)
+
+        assert "dev enp12s0" in captured["script"]
+        assert "cake bandwidth 950mbit" in captured["script"]
+        assert "cake bandwidth 100mbit" in captured["script"]

@@ -65,11 +65,63 @@ def _run_auto(args: argparse.Namespace) -> None:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    if args.apply:
+        _apply_toml(toml_text)
+        return
+
     if args.output:
         args.output.write_text(toml_text)
         print(f"Generated config for '{nic}' -> {args.output}", file=sys.stderr)
     else:
         sys.stdout.write(toml_text)
+
+
+def _apply_script(script: str) -> None:
+    """Execute a generated tc script, escalating with sudo when not root.
+
+    Mirrors ``htb config.toml | sudo sh``: the script is fed to the shell on
+    stdin. Already-root invocations skip sudo.
+    """
+    import os
+    import shutil
+    import subprocess
+
+    if os.geteuid() != 0:
+        if shutil.which("sudo") is None:
+            print(
+                "Error: not running as root and sudo not found; cannot apply",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        cmd = ["sudo", "sh", "-"]
+    else:
+        cmd = ["sh", "-"]
+    try:
+        proc = subprocess.run(cmd, input=script, text=True)
+    except OSError as exc:
+        print(f"Error: failed to run apply command: {exc}", file=sys.stderr)
+        sys.exit(1)
+    if proc.returncode != 0:
+        sys.exit(proc.returncode)
+
+
+def _apply_toml(toml_text: str) -> None:
+    """Resolve a TOML string into tc rules and apply them."""
+    # Ensure plugins are loaded
+    import hotbuckets.plugins  # noqa: F401
+    from hotbuckets.config import load_string
+    from hotbuckets.errors import HotbucketsError
+    from hotbuckets.resolver import resolve
+    from hotbuckets.script import generate
+
+    try:
+        config = load_string(toml_text)
+        result = resolve(config)
+        script = generate(config, result)
+    except HotbucketsError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+    _apply_script(script)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -119,6 +171,12 @@ def main(argv: list[str] | None = None) -> None:
         help="speed test timeout in seconds (with --auto, default 60)",
     )
     parser.add_argument(
+        "--apply",
+        default=False,
+        help="apply the generated rules (runs the script with sudo when not root)",
+        action="store_true",
+    )
+    parser.add_argument(
         "-o",
         "--output",
         help="write output to a file instead of stdout",
@@ -166,6 +224,10 @@ def main(argv: list[str] | None = None) -> None:
             return
 
         output = generate(config, result)
+
+        if args.apply:
+            _apply_script(output)
+            return
 
         if args.output:
             args.output.write_text(output)
